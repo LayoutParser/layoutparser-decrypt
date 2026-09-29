@@ -234,3 +234,33 @@ LayoutParserDecrypt/
 ## Uso de IA neste repositório
 
 Este repositório está configurado para uso assistido por IA (Claude Code). As convenções, agentes e contexto de máquina ficam em [`.claude/CLAUDE.md`](.claude/CLAUDE.md). Para perguntas sobre dependências, o repositório pode ser conectado ao [`better-context`](https://btca.dev) (`btca`) como servidor MCP — veja as instruções em `.claude/CLAUDE.md`.
+
+---
+
+## Serviço Windows (HTTP)
+
+O executável roda como **serviço Windows** (`ServiceBase`) expondo o contrato HTTP congelado `GET /health` e `POST /decrypt`. Em console (ou `--console`) roda em primeiro plano para depuração.
+
+**Instalação** (PowerShell elevado; ver [`scripts/install-service.ps1`](scripts/install-service.ps1)):
+
+```powershell
+# Somente local
+.\scripts\install-service.ps1
+# API Linux (10.20.0.15) alcançando este host (10.20.0.30)
+.\scripts\install-service.ps1 -BindAddress 10.20.0.30 -AllowedRemoteAddress 10.20.0.15
+```
+
+O script cria a reserva `urlacl`, o serviço (conta `LocalService`, restart automático), a regra de firewall e grava a configuração em variáveis de ambiente do serviço. Remoção: `scripts\uninstall-service.ps1`.
+
+| Variável | Default | Efeito |
+|---|---|---|
+| `LAYOUTPARSER_DECRYPT_BIND` | `localhost` | Hosts do bind (IPs separados por vírgula, ou `+`) |
+| `LAYOUTPARSER_DECRYPT_PORT` | `5220` | Porta |
+| `LAYOUTPARSER_DECRYPT_MAX_BODY_BYTES` | 10 MiB | Acima → `413` |
+| `LAYOUTPARSER_DECRYPT_TIMEOUT_SECONDS` | `30` | Estouro → `504` |
+| `LAYOUTPARSER_DECRYPT_MAX_CONCURRENCY` | `4` | Fila cheia (após `QUEUE_WAIT_MS`, 2000) → `503` + `Retry-After` |
+| `LAYOUTPARSER_LOG_DIR` | `<exe>\logs` | Diretório de logs |
+
+`/health` executa um **self-test** de descriptografia (payload embutido, cache de 15 s): `200 {"status":"ok","selfTest":"ok"}` ou `503` se falhar.
+
+> **Sem autenticação por design.** A única barreira é o isolamento de rede: com bind não-loopback o instalador exige `-AllowedRemoteAddress` (IP/CIDR da API) e recusa escopos amplos (`Any`, `0.0.0.0/0`).
