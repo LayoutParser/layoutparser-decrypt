@@ -1,0 +1,10 @@
+title = "gitleaks config — LayoutParserDecrypt"
+
+# Estende o conjunto de regras padrão do gitleaks (segredos genéricos: AWS keys, tokens de
+# API conhecidos, private keys etc.). Este repositório não tem connection string/API key
+# própria hoje (é só o cliente .exe de descriptografia Sysmiddle), então nenhuma regra
+# customizada específica de domínio foi adicionada ainda — trazer aqui se/quando este repo
+# passar a versionar config com segredo (ex.: settings do serviço HTTP introduzido na branch
+# feat/decrypt-http-service-adr).
+[extend]
+useDefault = true
