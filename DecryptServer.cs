@@ -33,8 +33,18 @@ namespace LayoutParserDecrypt
         private DateTime _selfTestAt = DateTime.MinValue;
         private string _selfTestError;
 
+        private readonly Func<string, string, DecryptResult> _decrypt;
+
         public DecryptServer(ServiceOptions options)
+            : this(options, (correlationId, body) => RequestHandler.HandleDecrypt(correlationId, body,
+                (level, message, ex) => RollingFileLogger.Log(level, message, ex)))
         {
+        }
+
+        /// <summary>Overload para testes: permite injetar um decrypt lento/falso (correlationId, corpo) → resultado.</summary>
+        public DecryptServer(ServiceOptions options, Func<string, string, DecryptResult> decrypt)
+        {
+            _decrypt = decrypt;
             _options = options;
             _gate = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
         }
@@ -65,7 +75,7 @@ namespace LayoutParserDecrypt
 
         public void Stop()
         {
-            // Graceful: novos requests recebem 503 enquanto os em andamento terminam (atÃ© ShutdownTimeout).
+            // Graceful: novos requests recebem 503 enquanto os em andamento terminam (até ShutdownTimeout).
             _draining = true;
             var deadline = DateTime.UtcNow + _options.ShutdownTimeout;
             while (Volatile.Read(ref _inFlight) > 0 && DateTime.UtcNow < deadline) Thread.Sleep(50);
@@ -198,8 +208,7 @@ namespace LayoutParserDecrypt
                     new DecryptErrorResponse("Corpo excede o tamanho máximo permitido.", correlationId)));
             }
 
-            return RequestHandler.HandleDecrypt(correlationId, body,
-                (level, message, ex) => RollingFileLogger.Log(level, message, ex));
+            return _decrypt(correlationId, body);
         }
 
         private static string ReadBounded(HttpListenerRequest request, long max)

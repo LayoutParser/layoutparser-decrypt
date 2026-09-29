@@ -47,8 +47,8 @@ jobs:
         shell: pwsh
         run: dotnet test .\LayoutParserDecrypt.sln -c Release --no-build
 
-      # Pacote implantÃ¡vel: exe + .config + scripts (a lib estÃ¡ embutida no exe, sem DLLs extras).
-      # SaÃ­da SDK-style: bin\Release\net48\ (nÃ£o bin\Release\).
+      # Pacote implantável: exe + .config + scripts (a lib está embutida no exe, sem DLLs extras).
+      # Saída SDK-style: bin\Release\net48\ (não bin\Release\).
       - name: Package (zip)
         shell: pwsh
         run: |
