@@ -37,7 +37,7 @@ Guia de contexto para IA (Claude Code) neste repositório. A documentação **hu
 | Arquivo | Papel |
 |---|---|
 | [`Program.cs`](../Program.cs) | Entrypoint. Parse de args → `Substring(3)` → `Decrypt` → grava saída → exit code. |
-| [`LayoutParserLib/CryptographySysMiddle.cs`](../LayoutParserLib/CryptographySysMiddle.cs) | Algoritmo Rijndael/AES (cópia **vendorizada**; canônico vive no repo `LayoutParserLib`). |
+| [`LayoutParserLib/CryptographySysMiddle.cs`](../LayoutParserLib/CryptographySysMiddle.cs) | Algoritmo Rijndael/AES (fonte da verdade, embutida como fonte local). |
 | [`LayoutParserLib/RollingFileLogger.cs`](../LayoutParserLib/RollingFileLogger.cs) | Logger `layoutparserlib.log` (namespace `LayoutParserLib`). |
 | [`RollingFileLogger.cs`](../RollingFileLogger.cs) | Logger `layoutparserdecrypt.log` (namespace `LayoutParserDecrypt`, usado pelo `Program`). |
 | [`LayoutParserDecrypt.csproj`](../LayoutParserDecrypt.csproj) | Inclui as cópias da lib como fontes locais (CI autocontido). |
@@ -49,7 +49,7 @@ Guia de contexto para IA (Claude Code) neste repositório. A documentação **hu
 Detalhe completo em [`rules/conventions.md`](rules/conventions.md). Resumo dos **footguns**:
 
 1. **O strip de 3 caracteres mora no `Program.cs`**, não na lib. Não mova sem alinhar com a API.
-2. **Cripto/logger são cópias vendorizadas.** Fonte da verdade = repo `LayoutParserLib`. Ao mudar a cripto, **sincronize as duas cópias** (`/sync-vendored-lib`).
+2. **`LayoutParserLib/` (cripto/logger) é a fonte da verdade aqui.** O repo `layoutparser-lib` foi arquivado; não há cópia para sincronizar. Não mexa na chave/IV sem decisão do dono.
 3. **Contrato de CLI é estável.** A API depende da ordem dos args e dos exit codes — não quebre.
 4. **Chave/IV hardcoded.** Não introduzir novos segredos no código; se mexer, documentar.
 5. **Logging nunca lança.** Mantenha os `catch {}` dos loggers.
@@ -75,7 +75,6 @@ Três agentes especializados (escopo deste repo). Invoque com `@<nome>` ou via T
 
 | Comando | O que faz |
 |---|---|
-| [`/sync-vendored-lib`](commands/sync-vendored-lib.md) | Compara/sincroniza as cópias vendorizadas com o repo canônico `LayoutParserLib`. |
 | [`/decrypt-roundtrip`](commands/decrypt-roundtrip.md) | Build Release + executa uma descriptografia de teste e valida o resultado. |
 
 ---

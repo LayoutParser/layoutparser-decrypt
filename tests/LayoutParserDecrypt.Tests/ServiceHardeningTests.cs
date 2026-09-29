@@ -39,7 +39,7 @@ namespace LayoutParserDecrypt.Tests
         {
             var o = ServiceOptions.FromEnvironment(_ => null);
             Assert.True(o.IsLoopbackOnly);
-            Assert.Equal(8080, o.Port);
+            Assert.Equal(5220, o.Port);
             Assert.Equal(4, o.MaxConcurrency);
         }
 
@@ -160,6 +160,70 @@ namespace LayoutParserDecrypt.Tests
                 Assert.Contains("200 OK", text);
                 Assert.Contains("LPD-SELFTEST-OK", text);
             }
+        }
+
+        private static DecryptServer StartWithDecrypt(Action<ServiceOptions> tweak, Func<string, string, DecryptResult> decrypt, out int port)
+        {
+            port = FreePort();
+            var o = new ServiceOptions
+            {
+                Port = port,
+                LogDir = Path.Combine(Path.GetTempPath(), "lpdecrypt-tests-" + Guid.NewGuid())
+            };
+            tweak?.Invoke(o);
+            var s = new DecryptServer(o, decrypt);
+            s.Start();
+            return s;
+        }
+
+        [Fact]
+        public async Task Decrypt_AcimaDoLimiteDeConcorrencia_Devolve503ComRetryAfter()
+        {
+            var entered = new ManualResetEventSlim(false);
+            var release = new ManualResetEventSlim(false);
+            var server = StartWithDecrypt(
+                o => { o.MaxConcurrency = 1; o.QueueWait = TimeSpan.FromMilliseconds(100); },
+                (corr, body) => { entered.Set(); release.Wait(TimeSpan.FromSeconds(10)); return new DecryptResult(200, "text/plain", "ok"); },
+                out var port);
+            try
+            {
+                using (var c = new HttpClient())
+                {
+                    var url = "http://localhost:" + port + "/decrypt";
+                    var first = c.PostAsync(url, new StringContent("XXXabc", Encoding.UTF8, "text/plain"));
+                    Assert.True(entered.Wait(TimeSpan.FromSeconds(5)), "primeira requisição não chegou ao decrypt");
+
+                    var second = await c.PostAsync(url, new StringContent("XXXabc", Encoding.UTF8, "text/plain"));
+                    Assert.Equal((HttpStatusCode)503, second.StatusCode);
+                    Assert.True(second.Headers.Contains("Retry-After"));
+
+                    release.Set();
+                    Assert.Equal(HttpStatusCode.OK, (await first).StatusCode);
+                }
+            }
+            finally { release.Set(); server.Stop(); }
+        }
+
+        [Fact]
+        public async Task Decrypt_QueDemoraMaisQueOTimeout_Devolve504()
+        {
+            var release = new ManualResetEventSlim(false);
+            var server = StartWithDecrypt(
+                o => o.RequestTimeout = TimeSpan.FromMilliseconds(300),
+                (corr, body) => { release.Wait(TimeSpan.FromSeconds(10)); return new DecryptResult(200, "text/plain", "ok"); },
+                out var port);
+            try
+            {
+                using (var c = new HttpClient())
+                {
+                    var r = await c.PostAsync("http://localhost:" + port + "/decrypt",
+                        new StringContent("XXXabc", Encoding.UTF8, "text/plain"));
+                    var body = await r.Content.ReadAsStringAsync();
+                    Assert.Equal((HttpStatusCode)504, r.StatusCode);
+                    Assert.Contains("\"error\"", body);
+                }
+            }
+            finally { release.Set(); server.Stop(); }
         }
     }
 }

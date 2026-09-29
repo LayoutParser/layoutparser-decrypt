@@ -11,9 +11,9 @@ Regras que **todo agente** deve respeitar ao editar este repo. Violar qualquer u
 - `encryptedContent.Substring(3)` acontece **antes** de chamar `CryptographySysMiddle.Decrypt`.
 - A lib **não** faz esse strip. Não mover sem alinhar com `lpd-integrator` + API.
 
-## 3. Cópias vendorizadas devem permanecer sincronizadas
-- `LayoutParserLib/CryptographySysMiddle.cs` e `LayoutParserLib/RollingFileLogger.cs` são **cópias** do repo canônico `..\LayoutParserLib`.
-- Fonte da verdade = repo `LayoutParserLib`. Ao alterar a cripto/logger aqui, sincronize lá (e vice-versa). Use `/sync-vendored-lib`.
+## 3. `LayoutParserLib/` é a fonte da verdade da cripto/logger
+- `LayoutParserLib/CryptographySysMiddle.cs` e `LayoutParserLib/RollingFileLogger.cs` vivem **só aqui**; o repo `layoutparser-lib` foi arquivado. Não há sincronização com outro repo.
+- Chave/IV hardcoded: não altere nem rotacione sem decisão explícita do dono do projeto.
 - O `.csproj` inclui essas cópias como fontes locais para manter o build de CI autocontido — não troque por `<ProjectReference>` sem rever o `build.yml`.
 
 ## 4. Segredos

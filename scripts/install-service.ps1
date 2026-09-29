@@ -26,7 +26,7 @@ param(
 
     # "localhost", um ou mais IPs (separados por vírgula) ou "+" (todas as interfaces).
     [string]$BindAddress = 'localhost',
-    [ValidateRange(1, 65535)][int]$Port = 8080,
+    [ValidateRange(1, 65535)][int]$Port = 5220,
     # IP ou CIDR permitido no firewall (ex.: IP da API Linux). Obrigatório se BindAddress não for loopback.
     [string[]]$AllowedRemoteAddress = @(),
 
@@ -47,7 +47,7 @@ if (-not (Test-Path $ExeSource)) { throw "Executável não encontrado: $ExeSourc
 $hosts = $BindAddress -split '[,;]' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
 $loopback = @('localhost', '127.0.0.1', '[::1]')
 if ($hosts | Where-Object { $_ -in @('+', '*') }) {
-    throw 'Bind curinga (+ ou *) proibido: a porta 8080 e compartilhada com outra API. Use um nome de host dedicado (ex.: layoutparserdecrypt.local); o http.sys roteia pelo cabecalho Host.'
+    throw 'Bind curinga (+ ou *) proibido: a porta 5220 e compartilhada com outra API. Use um nome de host dedicado (ex.: layoutparserdecrypt.local); o http.sys roteia pelo cabecalho Host.'
 }
 $isLoopbackOnly = -not ($hosts | Where-Object { $loopback -notcontains $_.ToLowerInvariant() })
 
