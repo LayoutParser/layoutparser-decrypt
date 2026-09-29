@@ -246,8 +246,8 @@ O executável roda como **serviço Windows** (`ServiceBase`) expondo o contrato 
 ```powershell
 # Somente local
 .\scripts\install-service.ps1
-# API Linux (10.20.0.15) alcançando este host (10.20.0.30)
-.\scripts\install-service.ps1 -BindAddress 10.20.0.30 -AllowedRemoteAddress 10.20.0.15
+# API Linux (10.20.0.15) chamando http://layoutparserdecrypt.local:8080
+.\scripts\install-service.ps1 -BindAddress layoutparserdecrypt.local -AllowedRemoteAddress 10.20.0.15
 ```
 
 O script cria a reserva `urlacl`, o serviço (conta `LocalService`, restart automático), a regra de firewall e grava a configuração em variáveis de ambiente do serviço. Remoção: `scripts\uninstall-service.ps1`.
@@ -273,3 +273,12 @@ O script cria a reserva `urlacl`, o serviço (conta `LocalService`, restart auto
 - **`HttpListenerException: Access is denied` / erro 5 no start:** falta o `urlacl` para a conta do serviço: `netsh http add urlacl url=http://<host>:8080/ user="NT AUTHORITY\LocalService"` (o `install-service.ps1` faz isso; uma reserva por host do bind).
 - **Porta acessível localmente mas não da API:** bind ainda em `localhost`, ou regra de firewall com `RemoteAddress` errado (`Get-NetFirewallRule -DisplayName "LayoutParserDecrypt*" | Get-NetFirewallAddressFilter`).
 - **`/health` 503:** o self-test de descriptografia falhou (runtime .NET Framework/`RijndaelManaged`); veja o log (`Self-test de descriptografia falhou`).
+
+### Porta 8080 compartilhada: bind por nome de host
+
+Outra API neste Windows também usa a porta 8080, então o serviço escuta por **nome** (`http://layoutparserdecrypt.local:8080/`), não por curinga. O `http.sys` roteia pelo cabeçalho `Host`; cada serviço registra seu próprio nome (e seu próprio `urlacl`) e os dois coexistem. O `install-service.ps1` recusa `+`/`*`.
+
+- A `layoutparserapi` (Linux) deve chamar **pelo nome**: `BaseUrl = http://layoutparserdecrypt.local:8080`. Chamar por IP (`Host: 10.x.x.x`) não casa com o prefixo e o `http.sys` responde `400`.
+- O nome precisa resolver para o IP do Windows **no Linux**: registro no DNS interno ou linha em `/etc/hosts` (`<IP-do-Windows> layoutparserdecrypt.local`). Sufixo `.local` é reservado a mDNS e pode causar lentidão/falha em resolvers Linux (systemd-resolved/avahi); um sufixo como `.lan` ou `.internal` é mais seguro — basta usar o mesmo nome em `-BindAddress`.
+- A outra API também deve usar um nome dedicado. Se ela escutar em `http://+:8080/`, pode capturar requisições e conflitar.
+- Firewall continua por porta + IP de origem (`-AllowedRemoteAddress`).
