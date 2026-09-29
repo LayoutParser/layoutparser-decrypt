@@ -71,8 +71,7 @@ namespace LayoutParserDecrypt.Tests
                     var r = await c.GetAsync("http://localhost:" + port + "/health");
                     var body = await r.Content.ReadAsStringAsync();
                     Assert.Equal(HttpStatusCode.OK, r.StatusCode);
-                    Assert.Contains("\"status\":\"ok\"", body);
-                    Assert.Contains("\"selfTest\":\"ok\"", body);
+                    Assert.Equal("{\"status\":\"ok\"}", body);
                 }
             }
             finally { server.Stop(); }
@@ -133,6 +132,34 @@ namespace LayoutParserDecrypt.Tests
                 }
             }
             finally { server.Stop(); }
+        }
+
+        [Fact]
+        public async Task Shutdown_Gracioso_AguardaRequestEmAndamento()
+        {
+            var server = StartServer(o => o.ShutdownTimeout = TimeSpan.FromSeconds(10), out var port);
+            const string payload = "XXXiaaOXUaXEcxyAReiZ5fZJA==";
+            using (var tcp = new System.Net.Sockets.TcpClient("localhost", port))
+            {
+                var stream = tcp.GetStream();
+                var head = "POST /decrypt HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: "
+                    + payload.Length + "\r\nConnection: close\r\n\r\n";
+                var headBytes = Encoding.ASCII.GetBytes(head + payload.Substring(0, 5));
+                stream.Write(headBytes, 0, headBytes.Length);
+                await Task.Delay(300); // request estÃ¡ "em andamento" (corpo incompleto)
+
+                var stopTask = Task.Run(() => server.Stop());
+                await Task.Delay(300);
+                Assert.False(stopTask.IsCompleted, "Stop deveria aguardar o request em andamento");
+
+                var rest = Encoding.ASCII.GetBytes(payload.Substring(5));
+                stream.Write(rest, 0, rest.Length);
+
+                var text = await new StreamReader(stream, Encoding.UTF8).ReadToEndAsync();
+                await stopTask;
+                Assert.Contains("200 OK", text);
+                Assert.Contains("LPD-SELFTEST-OK", text);
+            }
         }
     }
 }
