@@ -256,11 +256,20 @@ O script cria a reserva `urlacl`, o serviço (conta `LocalService`, restart auto
 |---|---|---|
 | `LAYOUTPARSER_DECRYPT_BIND` | `localhost` | Hosts do bind (IPs separados por vírgula, ou `+`) |
 | `LAYOUTPARSER_DECRYPT_PORT` | `5220` | Porta |
-| `LAYOUTPARSER_DECRYPT_MAX_BODY_BYTES` | 10 MiB | Acima → `413` |
+| `LAYOUTPARSER_DECRYPT_MAX_BODY_BYTES` | 20 MiB | Acima → `413` |
 | `LAYOUTPARSER_DECRYPT_TIMEOUT_SECONDS` | `30` | Estouro → `504` |
 | `LAYOUTPARSER_DECRYPT_MAX_CONCURRENCY` | `4` | Fila cheia (após `QUEUE_WAIT_MS`, 2000) → `503` + `Retry-After` |
 | `LAYOUTPARSER_LOG_DIR` | `<exe>\logs` | Diretório de logs |
 
-`/health` executa um **self-test** de descriptografia (payload embutido, cache de 15 s): `200 {"status":"ok","selfTest":"ok"}` ou `503` se falhar.
+`/health` executa um **self-test** de descriptografia (payload embutido, cache de 15 s): `200 {"status":"ok"}` ou `503 {"status":"degraded","reason":"..."}`. `LAYOUTPARSER_DECRYPT_SHUTDOWN_SECONDS` (15) define quanto o stop aguarda requests em andamento; novos requests recebem `503` nesse perÃ­odo.
 
 > **Sem autenticação por design.** A única barreira é o isolamento de rede: com bind não-loopback o instalador exige `-AllowedRemoteAddress` (IP/CIDR da API) e recusa escopos amplos (`Any`, `0.0.0.0/0`).
+
+### Pacote, validaÃ§Ã£o e troubleshooting
+
+- **Artefato do CI:** `LayoutParserDecrypt.zip` (exe, `.config`, `scripts\`). SaÃ­da do build local: `bin\Release\net48\`.
+- **Validar:** `curl http://<host>:5220/health` (de uma mÃ¡quina da sub-rede autorizada; de fora deve dar timeout). `sc query LayoutParserDecrypt` â†’ `RUNNING`.
+- **Erro 1053 no `sc start`:** o exe nÃ£o estÃ¡ rodando como serviÃ§o (versÃ£o antiga, sÃ³ console) ou falhou no `OnStart`. Veja o Event Viewer (Application) e o log em `LAYOUTPARSER_LOG_DIR`.
+- **`HttpListenerException: Access is denied` / erro 5 no start:** falta o `urlacl` para a conta do serviÃ§o: `netsh http add urlacl url=http://<host>:5220/ user="NT AUTHORITY\LocalService"` (o `install-service.ps1` faz isso; uma reserva por host do bind).
+- **Porta acessÃ­vel localmente mas nÃ£o da API:** bind ainda em `localhost`, ou regra de firewall com `RemoteAddress` errado (`Get-NetFirewallRule -DisplayName "LayoutParserDecrypt*" | Get-NetFirewallAddressFilter`).
+- **`/health` 503:** o self-test de descriptografia falhou (runtime .NET Framework/`RijndaelManaged`); veja o log (`Self-test de descriptografia falhou`).

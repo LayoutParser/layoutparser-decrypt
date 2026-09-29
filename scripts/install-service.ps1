@@ -19,7 +19,8 @@
 [CmdletBinding()]
 param(
     [string]$ServiceName = 'LayoutParserDecrypt',
-    [string]$ExeSource = (Join-Path $PSScriptRoot '..\bin\Release\net48\LayoutParserDecrypt.exe'),
+    # Zip do CI: exe na raiz, scripts em .\scripts. Checkout: saÃ­da SDK-style em bin\Release\net48.
+    [string]$ExeSource = $(foreach ($c in '..\LayoutParserDecrypt.exe', '..\bin\Release\net48\LayoutParserDecrypt.exe') { $f = Join-Path $PSScriptRoot $c; if (Test-Path $f) { $f; break } }),
     [string]$InstallDir = 'C:\Program Files\LayoutParserDecrypt',
     [string]$LogDir = 'C:\ProgramData\LayoutParserDecrypt\logs',
 
@@ -29,7 +30,7 @@ param(
     # IP ou CIDR permitido no firewall (ex.: IP da API Linux). Obrigatório se BindAddress não for loopback.
     [string[]]$AllowedRemoteAddress = @(),
 
-    [int]$MaxBodyBytes = 10485760,
+    [int]$MaxBodyBytes = 20971520,
     [int]$TimeoutSeconds = 30,
     [int]$MaxConcurrency = 4,
     [int]$QueueWaitMs = 2000

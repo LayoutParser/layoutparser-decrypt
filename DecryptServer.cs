@@ -26,6 +26,8 @@ namespace LayoutParserDecrypt
         private HttpListener _listener;
         private Task _loop;
         private CancellationTokenSource _cts;
+        private int _inFlight;
+        private volatile bool _draining;
 
         private readonly object _selfTestLock = new object();
         private DateTime _selfTestAt = DateTime.MinValue;
@@ -63,6 +65,13 @@ namespace LayoutParserDecrypt
 
         public void Stop()
         {
+            // Graceful: novos requests recebem 503 enquanto os em andamento terminam (atÃ© ShutdownTimeout).
+            _draining = true;
+            var deadline = DateTime.UtcNow + _options.ShutdownTimeout;
+            while (Volatile.Read(ref _inFlight) > 0 && DateTime.UtcNow < deadline) Thread.Sleep(50);
+            var left = Volatile.Read(ref _inFlight);
+            if (left > 0) RollingFileLogger.Log("WRN", string.Format("Shutdown com {0} request(s) ainda em andamento", left));
+
             try { if (_cts != null) _cts.Cancel(); } catch { }
             try { if (_listener != null) { _listener.Stop(); _listener.Close(); } } catch { }
             try { if (_loop != null) _loop.Wait(TimeSpan.FromSeconds(10)); } catch { }
@@ -87,8 +96,16 @@ namespace LayoutParserDecrypt
         {
             var request = context.Request;
             var response = context.Response;
+            Interlocked.Increment(ref _inFlight);
             try
             {
+                if (_draining)
+                {
+                    response.Headers["Retry-After"] = "1";
+                    await WriteAsync(response, 503, "application/json", "{\"error\":\"servico em desligamento\"}");
+                    return;
+                }
+
                 var correlationId = request.Headers["X-Correlation-ID"];
                 if (string.IsNullOrWhiteSpace(correlationId)) correlationId = Guid.NewGuid().ToString();
                 RollingFileLogger.Configure(_options.LogDir, correlationId);
@@ -97,9 +114,9 @@ namespace LayoutParserDecrypt
                 if (request.HttpMethod == "GET" && path == "/health")
                 {
                     if (RunSelfTest() == null)
-                        await WriteAsync(response, 200, "application/json", "{\"status\":\"ok\",\"selfTest\":\"ok\"}");
+                        await WriteAsync(response, 200, "application/json", "{\"status\":\"ok\"}");
                     else
-                        await WriteAsync(response, 503, "application/json", "{\"status\":\"unhealthy\",\"selfTest\":\"failed\"}");
+                        await WriteAsync(response, 503, "application/json", "{\"status\":\"degraded\",\"reason\":\"self-test de descriptografia falhou\"}");
                     return;
                 }
 
@@ -123,6 +140,7 @@ namespace LayoutParserDecrypt
             finally
             {
                 try { response.Close(); } catch { }
+                Interlocked.Decrement(ref _inFlight);
             }
         }
 
