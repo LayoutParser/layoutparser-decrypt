@@ -10,7 +10,7 @@ Decisões editoriais e pontos que confundem leitores. Ancorado em arquivos reais
 ## Pontos que confundem leitores (sempre explicar)
 - A existência do `.exe` separado parece redundante até explicar a incompatibilidade net10.0 ↔ cripto legada.
 - O strip de 3 caracteres não está na lib — fácil o leitor assumir que `Decrypt` faz tudo.
-- Há duas cópias da cripto (vendorizada vs canônica) — sempre dizer qual é a fonte da verdade (`LayoutParserLib`).
+- A cripto vive só em `LayoutParserLib/` deste repo (fonte da verdade; o repo `layoutparser-lib` foi arquivado).
 
 ## Gotchas
 - **Validar contra o código antes de escrever.** Documentação reflete o código real; nada de suposição.

@@ -5,7 +5,7 @@
 .DESCRIPTION
   Idempotente: pode ser reexecutado para reconfigurar/atualizar. Requer PowerShell elevado.
 
-  Autenticação: o serviço NÃO autentica requisições. A proteção é isolamento de rede — quando o bind
+  Autentica��o: o servi�o N�O autentica requisi��es. A prote��o � isolamento de rede � quando o bind
   não é loopback, -AllowedRemoteAddress (IP/CIDR da API) é OBRIGATÓRIO e vira o escopo da regra de firewall.
 
 .EXAMPLE
@@ -14,12 +14,12 @@
 
 .EXAMPLE
   # API Linux em 10.20.0.15 alcançando este host (10.20.0.30):
-  .\install-service.ps1 -BindAddress 10.20.0.30 -AllowedRemoteAddress 10.20.0.15
+  .\install-service.ps1 -BindAddress layoutparserdecrypt.local -AllowedRemoteAddress 10.20.0.15
 #>
 [CmdletBinding()]
 param(
     [string]$ServiceName = 'LayoutParserDecrypt',
-    # Zip do CI: exe na raiz, scripts em .\scripts. Checkout: saÃ­da SDK-style em bin\Release\net48.
+    # Zip do CI: exe na raiz, scripts em .\scripts. Checkout: saída SDK-style em bin\Release\net48.
     [string]$ExeSource = $(foreach ($c in '..\LayoutParserDecrypt.exe', '..\bin\Release\net48\LayoutParserDecrypt.exe') { $f = Join-Path $PSScriptRoot $c; if (Test-Path $f) { $f; break } }),
     [string]$InstallDir = 'C:\Program Files\LayoutParserDecrypt',
     [string]$LogDir = 'C:\ProgramData\LayoutParserDecrypt\logs',
@@ -46,6 +46,9 @@ if (-not (Test-Path $ExeSource)) { throw "Executável não encontrado: $ExeSourc
 
 $hosts = $BindAddress -split '[,;]' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
 $loopback = @('localhost', '127.0.0.1', '[::1]')
+if ($hosts | Where-Object { $_ -in @('+', '*') }) {
+    throw 'Bind curinga (+ ou *) proibido: a porta 5220 e compartilhada com outra API. Use um nome de host dedicado (ex.: layoutparserdecrypt.local); o http.sys roteia pelo cabecalho Host.'
+}
 $isLoopbackOnly = -not ($hosts | Where-Object { $loopback -notcontains $_.ToLowerInvariant() })
 
 if (-not $isLoopbackOnly) {
@@ -112,12 +115,12 @@ if (-not $isLoopbackOnly) {
 
 # 6) Start + verificação
 Start-Service $ServiceName
-$probe = if ($isLoopbackOnly) { 'localhost' } else { ($hosts | Where-Object { $_ -ne '+' } | Select-Object -First 1) }
-if (-not $probe) { $probe = 'localhost' }
+$probe = if ($isLoopbackOnly) { 'localhost' } else { $hosts | Select-Object -First 1 }
 $ok = $false
 for ($i = 0; $i -lt 15 -and -not $ok; $i++) {
-    try { $r = Invoke-WebRequest "http://${probe}:$Port/health" -UseBasicParsing -TimeoutSec 3; $ok = ($r.StatusCode -eq 200) }
-    catch { Start-Sleep -Seconds 1 }
+    # --resolve: envia o Host correto (o http.sys roteia por ele) sem exigir DNS/hosts nesta maquina.
+    $code = & curl.exe -s -o NUL -w '%{http_code}' --max-time 3 --resolve "${probe}:${Port}:127.0.0.1" "http://${probe}:$Port/health"
+    if ($code -eq '200') { $ok = $true } else { Start-Sleep -Seconds 1 }
 }
 if ($ok) { Write-Host "OK: serviço '$ServiceName' saudável em http://${probe}:$Port/health" }
 else { Write-Warning "Serviço iniciado, mas /health não respondeu 200. Veja $LogDir e o Event Viewer." }
