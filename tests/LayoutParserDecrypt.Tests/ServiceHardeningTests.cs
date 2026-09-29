@@ -39,7 +39,7 @@ namespace LayoutParserDecrypt.Tests
         {
             var o = ServiceOptions.FromEnvironment(_ => null);
             Assert.True(o.IsLoopbackOnly);
-            Assert.Equal(5220, o.Port);
+            Assert.Equal(8080, o.Port);
             Assert.Equal(4, o.MaxConcurrency);
         }
 
@@ -146,7 +146,7 @@ namespace LayoutParserDecrypt.Tests
                     + payload.Length + "\r\nConnection: close\r\n\r\n";
                 var headBytes = Encoding.ASCII.GetBytes(head + payload.Substring(0, 5));
                 stream.Write(headBytes, 0, headBytes.Length);
-                await Task.Delay(300); // request estÃ¡ "em andamento" (corpo incompleto)
+                await Task.Delay(300); // request está "em andamento" (corpo incompleto)
 
                 var stopTask = Task.Run(() => server.Stop());
                 await Task.Delay(300);

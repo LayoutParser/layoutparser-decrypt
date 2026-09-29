@@ -5,7 +5,7 @@
 .DESCRIPTION
   Idempotente: pode ser reexecutado para reconfigurar/atualizar. Requer PowerShell elevado.
 
-  Autenticação: o serviço NÃO autentica requisições. A proteção é isolamento de rede — quando o bind
+  Autentica��o: o servi�o N�O autentica requisi��es. A prote��o � isolamento de rede � quando o bind
   não é loopback, -AllowedRemoteAddress (IP/CIDR da API) é OBRIGATÓRIO e vira o escopo da regra de firewall.
 
 .EXAMPLE
@@ -19,14 +19,14 @@
 [CmdletBinding()]
 param(
     [string]$ServiceName = 'LayoutParserDecrypt',
-    # Zip do CI: exe na raiz, scripts em .\scripts. Checkout: saÃ­da SDK-style em bin\Release\net48.
+    # Zip do CI: exe na raiz, scripts em .\scripts. Checkout: saída SDK-style em bin\Release\net48.
     [string]$ExeSource = $(foreach ($c in '..\LayoutParserDecrypt.exe', '..\bin\Release\net48\LayoutParserDecrypt.exe') { $f = Join-Path $PSScriptRoot $c; if (Test-Path $f) { $f; break } }),
     [string]$InstallDir = 'C:\Program Files\LayoutParserDecrypt',
     [string]$LogDir = 'C:\ProgramData\LayoutParserDecrypt\logs',
 
     # "localhost", um ou mais IPs (separados por vírgula) ou "+" (todas as interfaces).
     [string]$BindAddress = 'localhost',
-    [ValidateRange(1, 65535)][int]$Port = 5220,
+    [ValidateRange(1, 65535)][int]$Port = 8080,
     # IP ou CIDR permitido no firewall (ex.: IP da API Linux). Obrigatório se BindAddress não for loopback.
     [string[]]$AllowedRemoteAddress = @(),
 

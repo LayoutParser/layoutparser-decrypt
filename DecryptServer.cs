@@ -65,7 +65,7 @@ namespace LayoutParserDecrypt
 
         public void Stop()
         {
-            // Graceful: novos requests recebem 503 enquanto os em andamento terminam (atÃ© ShutdownTimeout).
+            // Graceful: novos requests recebem 503 enquanto os em andamento terminam (até ShutdownTimeout).
             _draining = true;
             var deadline = DateTime.UtcNow + _options.ShutdownTimeout;
             while (Volatile.Read(ref _inFlight) > 0 && DateTime.UtcNow < deadline) Thread.Sleep(50);

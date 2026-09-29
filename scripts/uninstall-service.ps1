@@ -5,7 +5,7 @@
 [CmdletBinding()]
 param(
     [string]$ServiceName = 'LayoutParserDecrypt',
-    [ValidateRange(1, 65535)][int]$Port = 5220,
+    [ValidateRange(1, 65535)][int]$Port = 8080,
     [string]$InstallDir = 'C:\Program Files\LayoutParserDecrypt',
     [switch]$RemoveFiles
 )

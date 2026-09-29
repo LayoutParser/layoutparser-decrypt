@@ -14,7 +14,7 @@ namespace LayoutParserDecrypt
     {
         /// <summary>Hosts do prefixo HttpListener: "localhost", um IP, ou "+" (todas as interfaces).</summary>
         public IList<string> BindAddresses { get; set; } = new List<string> { "localhost" };
-        public int Port { get; set; } = 5220;
+        public int Port { get; set; } = 8080;
         public string LogDir { get; set; }
 
         /// <summary>Tamanho máximo do corpo em bytes → 413.</summary>
