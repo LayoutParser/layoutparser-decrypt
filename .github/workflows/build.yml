@@ -47,11 +47,19 @@ jobs:
         shell: pwsh
         run: dotnet test .\LayoutParserDecrypt.sln -c Release --no-build
 
-      - name: Upload artifact (exe)
+      # Pacote implantÃ¡vel: exe + .config + scripts (a lib estÃ¡ embutida no exe, sem DLLs extras).
+      # SaÃ­da SDK-style: bin\Release\net48\ (nÃ£o bin\Release\).
+      - name: Package (zip)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist\pkg\scripts | Out-Null
+          Copy-Item bin\Release\net48\LayoutParserDecrypt.exe dist\pkg\
+          Copy-Item bin\Release\net48\LayoutParserDecrypt.exe.config dist\pkg\ -ErrorAction SilentlyContinue
+          Copy-Item scripts\*.ps1 dist\pkg\scripts\
+          Compress-Archive -Path dist\pkg\* -DestinationPath dist\LayoutParserDecrypt.zip
+
+      - name: Upload artifact (zip)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: LayoutParserDecrypt
-          path: |
-            bin\Release\net48\LayoutParserDecrypt.exe
-            bin\Release\net48\LayoutParserDecrypt.exe.config
-            # Lib está embutida no exe (fontes locais), não gera DLL separada
+          path: dist\LayoutParserDecrypt.zip

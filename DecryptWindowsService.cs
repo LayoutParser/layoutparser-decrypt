@@ -34,7 +34,11 @@ namespace LayoutParserDecrypt
             }
         }
 
-        protected override void OnStop() { Shutdown(); }
+        protected override void OnStop()
+        {
+            RequestAdditionalTime((int)ServiceOptions.FromEnvironment().ShutdownTimeout.TotalMilliseconds + 5000);
+            Shutdown();
+        }
         protected override void OnShutdown() { Shutdown(); }
 
         private void Shutdown()

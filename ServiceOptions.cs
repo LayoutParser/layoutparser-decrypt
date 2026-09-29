@@ -18,12 +18,14 @@ namespace LayoutParserDecrypt
         public string LogDir { get; set; }
 
         /// <summary>Tamanho máximo do corpo em bytes → 413.</summary>
-        public long MaxBodyBytes { get; set; } = 10L * 1024 * 1024;
+        public long MaxBodyBytes { get; set; } = 20L * 1024 * 1024;
         /// <summary>Tempo máximo de uma requisição /decrypt (leitura + descriptografia) → 504.</summary>
         public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
         /// <summary>Decriptações simultâneas; acima disso a requisição espera <see cref="QueueWait"/> e recebe 503.</summary>
         public int MaxConcurrency { get; set; } = 4;
         public TimeSpan QueueWait { get; set; } = TimeSpan.FromSeconds(2);
+        /// <summary>Tempo máximo aguardando requests em andamento ao parar o serviço.</summary>
+        public TimeSpan ShutdownTimeout { get; set; } = TimeSpan.FromSeconds(15);
 
         public bool IsLoopbackOnly
         {
@@ -52,6 +54,8 @@ namespace LayoutParserDecrypt
             o.RequestTimeout = TimeSpan.FromSeconds(Int(get("LAYOUTPARSER_DECRYPT_TIMEOUT_SECONDS"), (int)o.RequestTimeout.TotalSeconds, 1, 3600));
             o.MaxConcurrency = Int(get("LAYOUTPARSER_DECRYPT_MAX_CONCURRENCY"), o.MaxConcurrency, 1, 256);
             o.QueueWait = TimeSpan.FromMilliseconds(Int(get("LAYOUTPARSER_DECRYPT_QUEUE_WAIT_MS"), (int)o.QueueWait.TotalMilliseconds, 0, 600000));
+
+            o.ShutdownTimeout = TimeSpan.FromSeconds(Int(get("LAYOUTPARSER_DECRYPT_SHUTDOWN_SECONDS"), (int)o.ShutdownTimeout.TotalSeconds, 1, 600));
 
             o.LogDir = get("LAYOUTPARSER_LOG_DIR");
             if (string.IsNullOrWhiteSpace(o.LogDir))
