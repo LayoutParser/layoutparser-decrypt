@@ -1,0 +1,35 @@
+name: Dependency review
+
+# actions/dependency-review-action é agnóstico de linguagem — usa o dependency graph nativo
+# do GitHub, que já resolve NuGet (via .csproj/packages.config) igual resolveria npm/pip.
+# Nenhuma configuração adicional necessária para este repo ser .NET.
+#
+# fail-on-severity: moderate — alinhado ao layoutparser-portal (referência mais rígida),
+# não ao valor "high" que a LayoutParserApi usa hoje (ver decisão registrada no PR de
+# harmonização da API: mantido "high" lá por já ser convenção prévia do repo, mas para um
+# workflow novo, sem convenção herdada, adota-se o padrão mais rígido do portal.
+
+on:
+  pull_request:
+    branches: [ "master", "main", "develop" ]
+
+concurrency:
+  group: dependency-review-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          comment-summary-in-pr: always
+          fail-on-severity: moderate

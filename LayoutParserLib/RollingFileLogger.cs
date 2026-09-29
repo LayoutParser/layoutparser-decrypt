@@ -1,21 +1,30 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace LayoutParserLib
 {
+    /// <summary>
+    /// Logger de arquivo rotativo usado pela camada de criptografia (<see cref="CryptographySysMiddle"/>).
+    ///
+    /// Migrado de CLI para serviço HTTP (ADR segregação Decrypt/LowCodeRunner, 2026-09-25): o diretório
+    /// de log é configurado uma única vez na subida do serviço, mas o CorrelationId agora é por
+    /// request — usa <see cref="AsyncLocal{T}"/> em vez de campo estático simples, para não vazar o
+    /// correlationId de uma requisição concorrente para o log de outra.
+    /// </summary>
     internal static class RollingFileLogger
     {
         private const long MaxBytes = 2049L * 1024L;
         private const int MaxFiles = 10;
 
         private static string _logDir = "";
-        private static string _corr = "";
+        private static readonly AsyncLocal<string> _corr = new AsyncLocal<string>();
 
         internal static void Configure(string logDir, string correlationId)
         {
             _logDir = logDir ?? "";
-            _corr = correlationId ?? "";
+            _corr.Value = correlationId ?? "";
         }
 
         internal static void Log(string level, string message, Exception ex = null)
@@ -23,7 +32,7 @@ namespace LayoutParserLib
             try
             {
                 var logDir = _logDir;
-                var corr = _corr;
+                var corr = _corr.Value;
                 if (string.IsNullOrWhiteSpace(corr)) corr = "N/A";
 
                 if (string.IsNullOrWhiteSpace(logDir))
@@ -65,5 +74,3 @@ namespace LayoutParserLib
         }
     }
 }
-
-

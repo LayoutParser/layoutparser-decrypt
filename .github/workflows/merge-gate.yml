@@ -1,0 +1,51 @@
+name: Merge Gate (master)
+
+# POR QUE ESTE WORKFLOW EXISTE
+# A topologia obrigatoria e feature -> develop -> master. A regra "master so pode ser
+# atualizada por PR cuja ORIGEM e develop" NAO existe como opcao nativa da branch protection
+# do GitHub (ela nao restringe por branch de origem). Este workflow e o mecanismo que supre isso:
+# roda em todo PR que MIRA master/main e FALHA se a origem nao for develop.
+#
+# Para virar barreira de verdade, o job "verify-source" precisa ser marcado como REQUIRED status
+# check na protecao da master (config no GitHub, nao neste arquivo - ver @lp-devops / dono do repo).
+# Vale a mesma ressalva do LayoutParserApi: sem GitHub Pro/Team em repo privado/publico no plano
+# free, a branch protection nativa pode nao estar disponivel - este gate FALHA a run e sinaliza
+# visualmente, mas nao bloqueia tecnicamente o merge sem o required status check.
+#
+# ESCOPO: apenas leitura de metadados do PR (github.head_ref). Sem checkout, sem build, sem
+# segredo, sem tocar o runner de producao. Roda em runner hospedado (ubuntu-latest).
+# Se a org tiver runner hospedado desabilitado, troque runs-on por [self-hosted, windows, dev-local].
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+
+# PRs concorrentes contra a mesma base nao precisam empilhar reavaliacoes.
+concurrency:
+  group: merge-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-source:
+    name: verify-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Exigir develop como origem do PR
+        # head_ref/base_ref vem por env (nao interpolado direto no shell) para evitar injecao
+        # via nome de branch. Em evento pull_request, github.head_ref sempre vem preenchido.
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          echo "PR: '${HEAD_REF}' -> '${BASE_REF}'"
+          if [ "${HEAD_REF}" != "develop" ]; then
+            echo "::error::master so aceita merge vindo de develop; abra o PR a partir de develop (origem atual: '${HEAD_REF}')."
+            exit 1
+          fi
+          echo "Origem valida (develop). Este gate libera o merge para '${BASE_REF}'."

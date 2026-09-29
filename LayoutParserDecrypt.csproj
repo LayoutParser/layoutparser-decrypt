@@ -1,63 +1,45 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ADR segregação Decrypt/LowCodeRunner (2026-09-25) — DESVIO IMPORTANTE do que o ADR assumia no §1:
+
+    O ADR partiu do achado de que CryptographySysMiddle.cs usa só RijndaelManaged gerenciado, sem
+    P/Invoke/COM, e concluiu que "tecnicamente esse código poderia rodar em .NET moderno". Isso é
+    FALSO para a chave/IV reais em uso aqui: a chave tem 96 bits e o IV tem 152 bits — tamanhos que
+    não existem em AES (128/192/256 de chave, bloco fixo de 128). A partir do .NET Core/.NET 5+,
+    `RijndaelManaged` deixou de ser a implementação "Rijndael real" (que aceita bloco/chave em
+    incrementos de 32 bits, 128–256) e virou um shim fino sobre AES — só aceita os tamanhos padrão
+    do AES. Confirmado empiricamente nesta etapa: rodando este mesmo código em net10.0, o
+    CreateEncryptor/CreateDecryptor lança `ArgumentException: Specified key is not a valid size for
+    this algorithm` para a chave/IV reais do projeto (teste que expôs isso removido do histórico de
+    tentativa, mas o comportamento é reproduzível trocando o TargetFramework para net10.0).
+
+    Migrar o algoritmo teria que passar por uma implementação alternativa (ex.: BouncyCastle
+    RijndaelEngine, que aceita bloco/chave variável) com validação byte-a-byte contra a saída atual
+    — isso é trabalho de validação não trivial, FORA do escopo desta etapa (é o candidato a ADR
+    futuro já previsto no §5 do ADR original). Por isso esta etapa mantém a criptografia rodando em
+    **.NET Framework 4.8.1** (TargetFramework net48, não net10.0) — só migra o TRANSPORTE de
+    subprocess (Process.Start + arquivo temp) para um serviço HTTP auto-hospedado
+    (System.Net.HttpListener, sem dependência de ASP.NET Core, que não roda em .NET Framework
+    clássico). Fica documentado como pendência a reportar de volta ao autor do ADR (@lp-architect).
+  -->
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{2A18F0EE-924D-404B-86B6-E3CEC6DABC6D}</ProjectGuid>
     <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
     <RootNamespace>LayoutParserDecrypt</RootNamespace>
     <AssemblyName>LayoutParserDecrypt</AssemblyName>
-    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <Deterministic>true</Deterministic>
-    <TargetFrameworkProfile />
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
-    <!--
-      IMPORTANT (CI):
-      Este projeto precisa compilar de forma independente no GitHub Actions.
-      O repositório do LayoutParserDecrypt não contém a solução LayoutParserLib como sibling.
-      Por isso, incluímos o código mínimo do LayoutParserLib (Crypto + logger) como arquivos fonte locais.
-    -->
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
+    <Compile Remove="tests\**\*.cs" />
+    <Content Remove="tests\**\*" />
+    <None Remove="tests\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Program.cs" />
-    <Compile Include="RollingFileLogger.cs" />
-    <Compile Include="LayoutParserLib\\RollingFileLogger.cs" />
-    <Compile Include="LayoutParserLib\\CryptographySysMiddle.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
 </Project>
